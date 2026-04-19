@@ -15,6 +15,138 @@ CORS(app)
 DB_PATH = os.path.join(os.path.dirname(__file__), 'wuh_it_plan.db')
 HTML_DIR = os.path.dirname(__file__)
 
+def init_db():
+    """สร้าง tables อัตโนมัติถ้ายังไม่มี"""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS projects (
+        id          INTEGER PRIMARY KEY,
+        section     TEXT    DEFAULT '',
+        name        TEXT    NOT NULL,
+        full_name   TEXT    DEFAULT '',
+        it          TEXT    DEFAULT '',
+        po          TEXT    DEFAULT '',
+        dept        TEXT    DEFAULT '',
+        status      TEXT    DEFAULT 'todo',
+        status_raw  TEXT    DEFAULT '',
+        size        TEXT    DEFAULT '',
+        manday      TEXT    DEFAULT '',
+        approved    TEXT    DEFAULT '',
+        hold        TEXT    DEFAULT '',
+        team        TEXT    DEFAULT '[]',
+        months      TEXT    DEFAULT '[]',
+        y2569       INTEGER DEFAULT 0,
+        y2570       INTEGER DEFAULT 0,
+        y2571       INTEGER DEFAULT 0,
+        progress    TEXT    DEFAULT '',
+        budget     TEXT    DEFAULT '',
+        gstart      INTEGER DEFAULT 0,
+        gend        INTEGER DEFAULT 0,
+        created_at  TEXT    DEFAULT (datetime('now','localtime')),
+        updated_at  TEXT    DEFAULT (datetime('now','localtime'))
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS master_it (
+        id          INTEGER PRIMARY KEY,
+        name        TEXT    NOT NULL,
+        nickname    TEXT    DEFAULT '',
+        role        TEXT    DEFAULT '',
+        group_name  TEXT    DEFAULT '',
+        phone       TEXT    DEFAULT '',
+        email       TEXT    DEFAULT '',
+        desc        TEXT    DEFAULT '',
+        dept        TEXT    DEFAULT '',
+        sort_order  INTEGER DEFAULT 0
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS master_section (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT    UNIQUE NOT NULL,
+        note        TEXT    DEFAULT '',
+        sort_order  INTEGER DEFAULT 0
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS master_po (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT    UNIQUE NOT NULL,
+        dept        TEXT    DEFAULT '',
+        contact     TEXT    DEFAULT ''
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS master_dept (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT    UNIQUE NOT NULL,
+        group_name  TEXT    DEFAULT '',
+        note        TEXT    DEFAULT '',
+        sort_order  INTEGER DEFAULT 0
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS master_size (
+        key         TEXT    PRIMARY KEY,
+        label       TEXT    DEFAULT '',
+        bg          TEXT    DEFAULT '#e0f2fe',
+        color      TEXT    DEFAULT '#0369a1',
+        manday      INTEGER DEFAULT 0,
+        note        TEXT    DEFAULT '',
+        sort_order  INTEGER DEFAULT 0
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS fiscal_years (
+        key         TEXT    PRIMARY KEY,
+        label       TEXT    NOT NULL,
+        sort_order  INTEGER DEFAULT 0
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS it_groups (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT    UNIQUE NOT NULL,
+        sort_order  INTEGER DEFAULT 0
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS performance (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id  INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+        year_key    TEXT    NOT NULL,
+        target      REAL    DEFAULT 0,
+        yearly      REAL    DEFAULT 0,
+        m1          REAL    DEFAULT 0,
+        m2          REAL    DEFAULT 0,
+        m3          REAL    DEFAULT 0,
+        m4          REAL    DEFAULT 0,
+        m5          REAL    DEFAULT 0,
+        m6          REAL    DEFAULT 0,
+        m7          REAL    DEFAULT 0,
+        m8          REAL    DEFAULT 0,
+        m9          REAL    DEFAULT 0,
+        m10         REAL    DEFAULT 0,
+        m11         REAL    DEFAULT 0,
+        m12         REAL    DEFAULT 0,
+        updated_at  TEXT    DEFAULT (datetime('now','localtime')),
+        UNIQUE(project_id, year_key)
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS users (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        username    TEXT    UNIQUE NOT NULL,
+        password    TEXT    NOT NULL,
+        name        TEXT    DEFAULT '',
+        role        TEXT    DEFAULT 'viewer',
+        note        TEXT    DEFAULT '',
+        created_at  TEXT    DEFAULT (datetime('now','localtime'))
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS subtasks (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id  INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+        name        TEXT    NOT NULL,
+        status      TEXT    DEFAULT 'todo',
+        assignee    TEXT    DEFAULT '',
+        due_date    TEXT    DEFAULT '',
+        note        TEXT    DEFAULT ''
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS logs (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user        TEXT    DEFAULT '',
+        action      TEXT    NOT NULL,
+        detail      TEXT    DEFAULT '',
+        created_at  TEXT    DEFAULT (datetime('now','localtime'))
+    )''')
+    conn.commit()
+    conn.close()
+
+if not os.path.exists(DB_PATH):
+    init_db()
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
