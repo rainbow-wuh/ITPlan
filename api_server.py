@@ -176,19 +176,22 @@ def log_action(user, action, detail=''):
 # ══════════════════════════════════════════════════════════
 @app.route('/api/projects', methods=['GET'])
 def get_projects():
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM projects ORDER BY id").fetchall()
-    result = []
-    for r in rows:
-        p = dict(r)
-        p['team']   = json.loads(p.get('team','[]') or '[]')
-        p['months'] = json.loads(p.get('months','[]') or '[]')
-        p['y2569']  = bool(p['y2569'])
-        p['y2570']  = bool(p['y2570'])
-        p['y2571']  = bool(p['y2571'])
-        result.append(p)
-    conn.close()
-    return jsonify(result)
+    try:
+        conn = get_db()
+        rows = conn.execute("SELECT * FROM projects ORDER BY id").fetchall()
+        result = []
+        for r in rows:
+            p = dict(r)
+            p['team']   = json.loads(p.get('team','[]') or '[]')
+            p['months'] = json.loads(p.get('months','[]') or '[]')
+            p['y2569']  = bool(p.get('y2569',0))
+            p['y2570']  = bool(p.get('y2570',0))
+            p['y2571']  = bool(p.get('y2571',0))
+            result.append(p)
+        conn.close()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/projects', methods=['POST'])
 def add_project():
