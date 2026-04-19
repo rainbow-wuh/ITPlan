@@ -9,7 +9,7 @@ import psycopg2, json, os
 from datetime import datetime
 from functools import wraps
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='public')
 CORS(app)
 
 # Supabase PostgreSQL Connection
