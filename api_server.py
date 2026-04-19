@@ -342,6 +342,11 @@ def get_logs():
 # ══════════════════════════════════════════════════════════
 @app.route('/')
 def serve_html():
+    return 'IT Plan Server Running!'
+
+@app.route('/test')
+def test():
+    return send_from_directory('public', 'index.html')
     import os
     public_path = os.path.join(os.path.dirname(__file__), 'public', 'index.html')
     if os.path.exists(public_path):
