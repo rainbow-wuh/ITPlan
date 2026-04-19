@@ -454,8 +454,13 @@ def serve_html():
 
 @app.route('/api/health')
 def health():
-    return jsonify({'status': 'ok', 'db': DB_PATH,
-                    'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')})
+    try:
+        conn = get_db()
+        rows = conn.execute("SELECT COUNT(*) FROM projects").fetchall()
+        conn.close()
+        return jsonify({'status': 'ok', 'projects_count': rows[0][0] if rows else 0})
+    except Exception as e:
+        return jsonify({'error': str(e), 'db_path': DB_PATH, 'db_exists': os.path.exists(DB_PATH)}), 500
 
 if __name__ == '__main__':
     print("=" * 50)
