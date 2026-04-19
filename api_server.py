@@ -16,6 +16,12 @@ CORS(app)
 DB_URL = os.environ.get('DATABASE_URL') or 'postgresql://postgres:YOUR-PASSWORD@db.ivesmxwavwodhmdbwfpx.supabase.co:5432/postgres'
 
 def get_db():
+    try:
+        conn = psycopg2.connect(DB_URL)
+        return conn
+    except Exception as e:
+        print(f"DB Connection Error: {e}")
+        raise
     conn = psycopg2.connect(DB_URL)
     conn.row_factory = psycopg2.row_factory
     return conn
@@ -343,4 +349,10 @@ if __name__ == '__main__':
     print("  WUH-IT-Plan API Server")
     print("  http://localhost:5001")
     print("=" * 50)
+    try:
+        conn = get_db()
+        conn.close()
+        print("✅ Database connected!")
+    except Exception as e:
+        print(f"❌ Database error: {e}")
     app.run(host='0.0.0.0', port=5001, debug=True)
