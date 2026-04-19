@@ -5,12 +5,29 @@ WUH-IT-Plan — Flask REST API Server
 """
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-import sqlite3, json, os
+import psycopg2, json, os
 from datetime import datetime
 from functools import wraps
 
 app = Flask(__name__)
 CORS(app)
+
+# Supabase PostgreSQL Connection
+DB_URL = os.environ.get('DATABASE_URL') or 'postgresql://postgres:YOUR-PASSWORD@db.ivesmxwavwodhmdbwfpx.supabase.co:5432/postgres'
+
+def get_db():
+    conn = psycopg2.connect(DB_URL)
+    conn.row_factory = psycopg2.row_factory
+    return conn
+
+def rows_to_list(rows):
+    return [dict(r) for r in rows]
+
+def log_action(user, action, detail=''):
+    conn = get_db()
+    conn.execute("INSERT INTO logs (user,action,detail) VALUES (%s,%s,%s)",
+                 (user, action, detail))
+    conn.commit(); conn.close()
 
 @app.after_request
 def after_request(response):
@@ -21,178 +38,35 @@ def after_request(response):
 def health():
     try:
         conn = get_db()
-        rows = conn.execute("SELECT COUNT(*) FROM projects").fetchall()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM projects")
+        count = cur.fetchone()[0]
         conn.close()
-        return jsonify({'status': 'ok', 'projects_count': rows[0][0] if rows else 0})
+        return jsonify({'status': 'ok', 'projects_count': count})
     except Exception as e:
-        return jsonify({'error': str(e), 'db_exists': os.path.exists(DB_PATH)}), 500
+return jsonify({'error': str(e)}), 500
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'wuh_it_plan.db')
-HTML_DIR = os.path.dirname(__file__)
-
-def init_db():
-    """สร้าง tables อัตโนมัติถ้ายังไม่มี"""
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS projects (
-        id          INTEGER PRIMARY KEY,
-        section     TEXT    DEFAULT '',
-        name        TEXT    NOT NULL,
-        full_name   TEXT    DEFAULT '',
-        it          TEXT    DEFAULT '',
-        po          TEXT    DEFAULT '',
-        dept        TEXT    DEFAULT '',
-        status      TEXT    DEFAULT 'todo',
-        status_raw  TEXT    DEFAULT '',
-        size        TEXT    DEFAULT '',
-        manday      TEXT    DEFAULT '',
-        approved    TEXT    DEFAULT '',
-        hold        TEXT    DEFAULT '',
-        team        TEXT    DEFAULT '[]',
-        months      TEXT    DEFAULT '[]',
-        y2569       INTEGER DEFAULT 0,
-        y2570       INTEGER DEFAULT 0,
-        y2571       INTEGER DEFAULT 0,
-        progress    TEXT    DEFAULT '',
-        budget     TEXT    DEFAULT '',
-        gstart      INTEGER DEFAULT 0,
-        gend        INTEGER DEFAULT 0,
-        created_at  TEXT    DEFAULT (datetime('now','localtime')),
-        updated_at  TEXT    DEFAULT (datetime('now','localtime'))
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS master_it (
-        id          INTEGER PRIMARY KEY,
-        name        TEXT    NOT NULL,
-        nickname    TEXT    DEFAULT '',
-        role        TEXT    DEFAULT '',
-        group_name  TEXT    DEFAULT '',
-        phone       TEXT    DEFAULT '',
-        email       TEXT    DEFAULT '',
-        desc        TEXT    DEFAULT '',
-        dept        TEXT    DEFAULT '',
-        sort_order  INTEGER DEFAULT 0
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS master_section (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        name        TEXT    UNIQUE NOT NULL,
-        note        TEXT    DEFAULT '',
-        sort_order  INTEGER DEFAULT 0
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS master_po (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        name        TEXT    UNIQUE NOT NULL,
-        dept        TEXT    DEFAULT '',
-        contact     TEXT    DEFAULT ''
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS master_dept (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        name        TEXT    UNIQUE NOT NULL,
-        group_name  TEXT    DEFAULT '',
-        note        TEXT    DEFAULT '',
-        sort_order  INTEGER DEFAULT 0
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS master_size (
-        key         TEXT    PRIMARY KEY,
-        label       TEXT    DEFAULT '',
-        bg          TEXT    DEFAULT '#e0f2fe',
-        color      TEXT    DEFAULT '#0369a1',
-        manday      INTEGER DEFAULT 0,
-        note        TEXT    DEFAULT '',
-        sort_order  INTEGER DEFAULT 0
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS fiscal_years (
-        key         TEXT    PRIMARY KEY,
-        label       TEXT    NOT NULL,
-        sort_order  INTEGER DEFAULT 0
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS it_groups (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        name        TEXT    UNIQUE NOT NULL,
-        sort_order  INTEGER DEFAULT 0
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS performance (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id  INTEGER REFERENCES projects(id) ON DELETE CASCADE,
-        year_key    TEXT    NOT NULL,
-        target      REAL    DEFAULT 0,
-        yearly      REAL    DEFAULT 0,
-        m1          REAL    DEFAULT 0,
-        m2          REAL    DEFAULT 0,
-        m3          REAL    DEFAULT 0,
-        m4          REAL    DEFAULT 0,
-        m5          REAL    DEFAULT 0,
-        m6          REAL    DEFAULT 0,
-        m7          REAL    DEFAULT 0,
-        m8          REAL    DEFAULT 0,
-        m9          REAL    DEFAULT 0,
-        m10         REAL    DEFAULT 0,
-        m11         REAL    DEFAULT 0,
-        m12         REAL    DEFAULT 0,
-        updated_at  TEXT    DEFAULT (datetime('now','localtime')),
-        UNIQUE(project_id, year_key)
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        username    TEXT    UNIQUE NOT NULL,
-        password    TEXT    NOT NULL,
-        name        TEXT    DEFAULT '',
-        role        TEXT    DEFAULT 'viewer',
-        note        TEXT    DEFAULT '',
-        created_at  TEXT    DEFAULT (datetime('now','localtime'))
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS subtasks (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id  INTEGER REFERENCES projects(id) ON DELETE CASCADE,
-        name        TEXT    NOT NULL,
-        status      TEXT    DEFAULT 'todo',
-        assignee    TEXT    DEFAULT '',
-        due_date    TEXT    DEFAULT '',
-        note        TEXT    DEFAULT ''
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS logs (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        user        TEXT    DEFAULT '',
-        action      TEXT    NOT NULL,
-        detail      TEXT    DEFAULT '',
-        created_at  TEXT    DEFAULT (datetime('now','localtime'))
-    )''')
-    conn.commit()
-    conn.close()
-
-if not os.path.exists(DB_PATH):
-    init_db()
-
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
-
-def rows_to_list(rows):
-    return [dict(r) for r in rows]
-
-def log_action(user, action, detail=''):
-    conn = get_db()
-    conn.execute("INSERT INTO logs (user,action,detail) VALUES (?,?,?)",
-                 (user, action, detail))
-    conn.commit(); conn.close()
-
-# ══════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════
 # PROJECTS
 # ══════════════════════════════════════════════════════════
 @app.route('/api/projects', methods=['GET'])
 def get_projects():
     try:
         conn = get_db()
-        rows = conn.execute("SELECT * FROM projects ORDER BY id").fetchall()
+        cur = conn.cursor()
+        cur.execute("SELECT id,section,name,full_name,it,po,dept,status,status_raw,size,manday,approved,hold,team,months,y2569,y2570,y2571,progress,budget,gstart,gend FROM projects ORDER BY id")
+        rows = cur.fetchall()
         result = []
         for r in rows:
-            p = dict(r)
-            p['team']   = json.loads(p.get('team','[]') or '[]')
-            p['months'] = json.loads(p.get('months','[]') or '[]')
-            p['y2569']  = bool(p.get('y2569',0))
-            p['y2570']  = bool(p.get('y2570',0))
-            p['y2571']  = bool(p.get('y2571',0))
+            p = {
+                'id': r[0], 'section': r[1], 'name': r[2], 'full_name': r[3],
+                'it': r[4], 'po': r[5], 'dept': r[6], 'status': r[7],
+                'status_raw': r[8], 'size': r[9], 'manday': r[10],
+                'approved': r[11], 'hold': r[12], 'team': json.loads(r[13] or '[]'),
+                'months': json.loads(r[14] or '[]'), 'y2569': bool(r[15]),
+                'y2570': bool(r[16]), 'y2571': bool(r[17]),
+                'progress': r[18], 'budget': r[19], 'gstart': r[20], 'gend': r[21]
+            }
             result.append(p)
         conn.close()
         return jsonify(result)
@@ -203,26 +77,28 @@ def get_projects():
 def add_project():
     d = request.json
     conn = get_db()
-    cur = conn.execute('''INSERT INTO projects
+    cur = conn.cursor()
+    cur.execute('''INSERT INTO projects
         (section,name,full_name,it,po,dept,status,status_raw,size,
          manday,approved,hold,team,months,y2569,y2570,y2571,
          progress,budget,gstart,gend)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        RETURNING id''', (
         d.get('section',''), d.get('name',''), d.get('full_name',''),
         d.get('it',''), d.get('po',''), d.get('dept',''),
         d.get('status','todo'), d.get('status_raw',''),
         d.get('size',''), str(d.get('manday','')),
         d.get('approved',''), d.get('hold',''),
-        json.dumps(d.get('team',[]), ensure_ascii=False),
-        json.dumps(d.get('months',[]), ensure_ascii=False),
+        json.dumps(d.get('team',[])),
+        json.dumps(d.get('months',[])),
         1 if d.get('y2569') else 0,
         1 if d.get('y2570') else 0,
         1 if d.get('y2571') else 0,
         d.get('progress',''), str(d.get('budget','')),
         d.get('gstart',0), d.get('gend',0)
     ))
+    new_id = cur.fetchone()[0]
     conn.commit()
-    new_id = cur.lastrowid
     conn.close()
     log_action(d.get('_user','system'), 'ADD_PROJECT', d.get('name',''))
     return jsonify({'id': new_id, 'ok': True})
@@ -231,20 +107,21 @@ def add_project():
 def update_project(pid):
     d = request.json
     conn = get_db()
-    conn.execute('''UPDATE projects SET
-        section=?, name=?, full_name=?, it=?, po=?, dept=?,
-        status=?, status_raw=?, size=?, manday=?, approved=?, hold=?,
-        team=?, months=?, y2569=?, y2570=?, y2571=?,
-        progress=?, budget=?, gstart=?, gend=?,
-        updated_at=datetime('now','localtime')
-        WHERE id=?''', (
+    cur = conn.cursor()
+    cur.execute('''UPDATE projects SET
+        section=%s, name=%s, full_name=%s, it=%s, po=%s, dept=%s,
+        status=%s, status_raw=%s, size=%s, manday=%s, approved=%s, hold=%s,
+        team=%s, months=%s, y2569=%s, y2570=%s, y2571=%s,
+        progress=%s, budget=%s, gstart=%s, gend=%s,
+        updated_at=NOW()
+        WHERE id=%s''', (
         d.get('section',''), d.get('name',''), d.get('full_name',''),
         d.get('it',''), d.get('po',''), d.get('dept',''),
         d.get('status','todo'), d.get('status_raw',''),
         d.get('size',''), str(d.get('manday','')),
         d.get('approved',''), d.get('hold',''),
-        json.dumps(d.get('team',[]), ensure_ascii=False),
-        json.dumps(d.get('months',[]), ensure_ascii=False),
+        json.dumps(d.get('team',[])),
+        json.dumps(d.get('months',[])),
         1 if d.get('y2569') else 0,
         1 if d.get('y2570') else 0,
         1 if d.get('y2571') else 0,
@@ -253,6 +130,15 @@ def update_project(pid):
     ))
     conn.commit(); conn.close()
     log_action(d.get('_user','system'), 'UPDATE_PROJECT', str(pid))
+    return jsonify({'ok': True})
+
+@app.route('/api/projects/<int:pid>', methods=['DELETE'])
+def delete_project(pid):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM projects WHERE id=%s", (pid,))
+    conn.commit(); conn.close()
+    log_action('system', 'DELETE_PROJECT', str(pid))
     return jsonify({'ok': True})
 
 @app.route('/api/projects/<int:pid>', methods=['DELETE'])
