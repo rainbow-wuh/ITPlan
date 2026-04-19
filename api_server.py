@@ -50,7 +50,7 @@ def health():
         conn.close()
         return jsonify({'status': 'ok', 'projects_count': count})
     except Exception as e:
-return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e)}), 500
 
 # ══════════════════════════════════════════════════
 # PROJECTS
