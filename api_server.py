@@ -12,6 +12,15 @@ from functools import wraps
 app = Flask(__name__)
 CORS(app)
 
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    return response
+
+@app.route('/api/health')
+def health():
+    return jsonify({'status': 'ok', 'db_exists': os.path.exists(DB_PATH)})
+
 DB_PATH = os.path.join(os.path.dirname(__file__), 'wuh_it_plan.db')
 HTML_DIR = os.path.dirname(__file__)
 
