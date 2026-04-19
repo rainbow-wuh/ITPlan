@@ -342,7 +342,11 @@ def get_logs():
 # ══════════════════════════════════════════════════════════
 @app.route('/')
 def serve_html():
-    return send_from_directory(HTML_DIR, 'WUH-IT-Plan.html')
+    return send_from_directory('public', 'index.html')
+
+@app.route('/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('public', filename)
 
 if __name__ == '__main__':
     print("=" * 50)
