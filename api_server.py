@@ -19,7 +19,13 @@ def after_request(response):
 
 @app.route('/api/health')
 def health():
-    return jsonify({'status': 'ok', 'db_exists': os.path.exists(DB_PATH)})
+    try:
+        conn = get_db()
+        rows = conn.execute("SELECT COUNT(*) FROM projects").fetchall()
+        conn.close()
+        return jsonify({'status': 'ok', 'projects_count': rows[0][0] if rows else 0})
+    except Exception as e:
+        return jsonify({'error': str(e), 'db_exists': os.path.exists(DB_PATH)}), 500
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'wuh_it_plan.db')
 HTML_DIR = os.path.dirname(__file__)
